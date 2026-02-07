@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IATRA - NEO Hazard Dashboard</title>
+  <title>Cosmic Watch - NEO Hazard Dashboard</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -13,8 +13,8 @@
   <div class="app">
     <header class="topbar">
       <div>
-        <p class="eyebrow">IATRA / Near-Earth Object Monitor</p>
-        <h1>NEO Hazard Dashboard</h1>
+        <p class="eyebrow"><span class="brand">Cosmic Watch</span> / Near-Earth Object Monitor</p>
+        <h1 class="dashboard-title">NEO Hazard Dashboard</h1>
       </div>
       <div class="top-actions">
         <div class="user-inline">
@@ -137,7 +137,7 @@
     <div class="modal-card">
       <div class="modal-header">
         <div>
-          <p class="eyebrow">IATRA / Visual</p>
+          <p class="eyebrow"><span class="brand">Cosmic Watch</span> / Visual</p>
           <h2 id="simulationTitle">Solar System + Asteroid</h2>
         </div>
         <button class="close-button" id="closeSimulation" type="button" aria-label="Close simulation">Close</button>
@@ -149,6 +149,8 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
   <script src="script.js"></script>
 </body>

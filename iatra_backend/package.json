@@ -1,7 +1,7 @@
 {
   "name": "iatra_backend",
   "version": "1.0.0",
-  "description": "IATRA Backend - NEO Authentication and Data Server",
+  "description": "Cosmic Watch Backend - NEO Authentication and Data Server",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

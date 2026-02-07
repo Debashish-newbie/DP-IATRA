@@ -1,6 +1,15 @@
 const USERS_URL = "users.json";
 const STORAGE_KEY = "iatra_users_v1";
 
+function getSupabase() {
+  return window.iatraSupabase || null;
+}
+
+function disableSupabase() {
+  window.iatraSupabase = null;
+}
+
+
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -66,6 +75,25 @@ async function handleLogin(event) {
     return;
   }
 
+  const supabase = getSupabase();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      if (error || !data?.session) {
+        setMessage(messageEl, error?.message || "Login failed. Try again.", "error");
+        return;
+      }
+      setMessage(messageEl, "Access granted. Loading dashboard...", "success");
+      setTimeout(redirectToDashboard, 800);
+      return;
+    } catch (error) {
+      disableSupabase();
+    }
+  }
+
   const users = await loadUsers();
   const user = users.find((entry) => normalizeEmail(entry.email) === email);
 
@@ -97,6 +125,32 @@ async function handleSignup(event) {
   if (!name || !email || !password) {
     setMessage(messageEl, "Complete all fields to continue.", "warn");
     return;
+  }
+
+  const supabase = getSupabase();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { name }
+        }
+      });
+      if (error) {
+        setMessage(messageEl, error.message, "error");
+        return;
+      }
+      if (data?.session) {
+        setMessage(messageEl, "Profile created. Redirecting to dashboard...", "success");
+        setTimeout(redirectToDashboard, 800);
+        return;
+      }
+      setMessage(messageEl, "Check your email to confirm this account.", "warn");
+      return;
+    } catch (error) {
+      disableSupabase();
+    }
   }
 
   const users = await loadUsers();

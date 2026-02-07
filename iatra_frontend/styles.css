@@ -70,6 +70,18 @@ body {
   margin-bottom: 12px;
 }
 
+.brand {
+  display: inline-block;
+  font-size: clamp(1.4rem, 2.2vw, 1.9rem);
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.24em;
+}
+
+.dashboard-title {
+  font-size: clamp(1.6rem, 3.2vw, 2.6rem);
+}
+
 h1 {
   font-size: clamp(2rem, 4vw, 3.4rem);
   font-weight: 700;

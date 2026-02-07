@@ -1,6 +1,14 @@
 const API_URL = "https://dp-iatra.onrender.com/api/asteroids";
 const TRACK_URL = "https://dp-iatra.onrender.com/api/tracked";
 
+function isSupabaseEnabled() {
+  return Boolean(window.iatraSupabase) && !window.iatraSupabaseDisabled;
+}
+
+function disableSupabase() {
+  window.iatraSupabaseDisabled = true;
+}
+
 const state = {
   neos: [],
   filter: "all",
@@ -45,6 +53,7 @@ let simulationState = {
 
 let trackedState = [];
 let currentUserEmail = "";
+let currentUserId = "";
 
 function getTodayString() {
   return new Date().toISOString().split("T")[0];
@@ -184,7 +193,7 @@ function renderGrid(list) {
     const hazard = hazardLevelFor(neo);
     const card = document.createElement("article");
     card.className = "neo-card";
-    const isTracked = trackedState.some((item) => String(item.id) === String(neo.id));
+    const isTracked = trackedState.some((item) => String(item.neo_id || item.id) === String(neo.id));
     card.innerHTML = `
       <div class="neo-title">
         <h3>${neo.name}</h3>
@@ -332,9 +341,14 @@ function wireControls() {
     });
   }
 
+
   if (logoutButton) {
-    logoutButton.addEventListener("click", () => {
-      sessionStorage.removeItem("iatra_session");
+    logoutButton.addEventListener("click", async () => {
+      if (isSupabaseEnabled()) {
+        await window.iatraSupabase.auth.signOut();
+      } else {
+        sessionStorage.removeItem("iatra_session");
+      }
       window.location.href = "index.html";
     });
   }
@@ -381,20 +395,40 @@ function wireControls() {
   }
 }
 
-function loadUserSession() {
+async function loadUserSession() {
+  if (isSupabaseEnabled()) {
+    try {
+      const { data, error } = await window.iatraSupabase.auth.getSession();
+      const session = data?.session;
+      if (error || !session) {
+        window.location.href = "index.html";
+        return false;
+      }
+      currentUserEmail = session.user?.email || "";
+      currentUserId = session.user?.id || "";
+      const name = session.user?.user_metadata?.name || currentUserEmail || "Cadet";
+      if (userNameEl) userNameEl.textContent = name;
+      return true;
+    } catch (error) {
+      disableSupabase();
+    }
+  }
+
   const raw = sessionStorage.getItem("iatra_session");
   if (!raw) {
     window.location.href = "index.html";
-    return;
+    return false;
   }
   try {
     const session = JSON.parse(raw);
     const name = session?.name || session?.email || "Cadet";
     if (userNameEl) userNameEl.textContent = name;
     currentUserEmail = session?.email || "";
+    return true;
   } catch (error) {
     sessionStorage.removeItem("iatra_session");
     window.location.href = "index.html";
+    return false;
   }
 }
 
@@ -622,11 +656,21 @@ function onSimulationResize() {
 
 async function loadTracked() {
   try {
-    const url = currentUserEmail ? `${TRACK_URL}?user=${encodeURIComponent(currentUserEmail)}` : TRACK_URL;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Server returned ${response.status}`);
-    const data = await response.json();
-    trackedState = Array.isArray(data.tracked) ? data.tracked : [];
+    if (isSupabaseEnabled() && currentUserId) {
+      const { data, error } = await window.iatraSupabase
+        .from("tracked_asteroids")
+        .select("*")
+        .eq("user_id", currentUserId)
+        .order("saved_at", { ascending: false });
+      if (error) throw error;
+      trackedState = Array.isArray(data) ? data : [];
+    } else {
+      const url = currentUserEmail ? `${TRACK_URL}?user=${encodeURIComponent(currentUserEmail)}` : TRACK_URL;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
+      const data = await response.json();
+      trackedState = Array.isArray(data.tracked) ? data.tracked : [];
+    }
   } catch (error) {
     trackedState = [];
   }
@@ -660,18 +704,18 @@ function renderTracked() {
   trackedState.forEach((item) => {
     const row = document.createElement("div");
     row.className = "tracked-row";
-    const hazardLabel = item.hazardLabel || (item.isHazardous ? "Hazardous" : "Nominal");
+    const hazardLabel = item.hazardLabel || item.hazard_label || (item.isHazardous || item.is_hazardous ? "Hazardous" : "Nominal");
     row.innerHTML = `
       <div class="approach-cell">
         <strong>${item.name}</strong>
-        <span>ID ${item.id}</span>
+        <span>ID ${item.neo_id || item.id}</span>
       </div>
       <div class="approach-cell">
-        <strong>${formatKm(item.missKm)}</strong>
+        <strong>${formatKm(item.miss_km ?? item.missKm)}</strong>
         <span>Miss Distance</span>
       </div>
       <div class="approach-cell">
-        <strong>${item.approachDate || "--"}</strong>
+        <strong>${item.approach_date || item.approachDate || "--"}</strong>
         <span>Approach</span>
       </div>
       <div class="approach-cell">
@@ -679,7 +723,7 @@ function renderTracked() {
         <span>Status</span>
       </div>
       <div class="approach-cell">
-        <button class="remove-button" data-track-id="${item.id}" type="button">Remove</button>
+        <button class="remove-button" data-track-id="${item.neo_id || item.id}" type="button">Remove</button>
       </div>
     `;
     fragment.appendChild(row);
@@ -688,7 +732,7 @@ function renderTracked() {
 }
 
 async function toggleTrack(neo) {
-  const isTracked = trackedState.some((item) => String(item.id) === String(neo.id));
+  const isTracked = trackedState.some((item) => String(item.neo_id || item.id) === String(neo.id));
   if (isTracked) {
     await removeTracked(neo.id);
     return;
@@ -696,22 +740,38 @@ async function toggleTrack(neo) {
 
   try {
     const hazard = hazardLevelFor(neo);
-    const response = await fetch(TRACK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: neo.id,
-        name: neo.name,
-        approachDate: neo.approachDate,
-        missKm: neo.missKm,
-        isHazardous: neo.isHazardous,
-        hazardLabel: hazard.label,
-        user: currentUserEmail
-      })
-    });
-    if (!response.ok) throw new Error(`Server returned ${response.status}`);
-    const data = await response.json();
-    trackedState = Array.isArray(data.tracked) ? data.tracked : trackedState;
+    if (isSupabaseEnabled() && currentUserId) {
+      const { error } = await window.iatraSupabase.from("tracked_asteroids").insert([
+        {
+          user_id: currentUserId,
+          neo_id: String(neo.id),
+          name: neo.name,
+          approach_date: neo.approachDate,
+          miss_km: neo.missKm,
+          is_hazardous: neo.isHazardous,
+          hazard_label: hazard.label
+        }
+      ]);
+      if (error) throw error;
+      await loadTracked();
+    } else {
+      const response = await fetch(TRACK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: neo.id,
+          name: neo.name,
+          approachDate: neo.approachDate,
+          missKm: neo.missKm,
+          isHazardous: neo.isHazardous,
+          hazardLabel: hazard.label,
+          user: currentUserEmail
+        })
+      });
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
+      const data = await response.json();
+      trackedState = Array.isArray(data.tracked) ? data.tracked : trackedState;
+    }
     renderTracked();
     applyFilters();
   } catch (error) {
@@ -721,13 +781,23 @@ async function toggleTrack(neo) {
 
 async function removeTracked(id) {
   try {
-    const url = currentUserEmail
-      ? `${TRACK_URL}/${id}?user=${encodeURIComponent(currentUserEmail)}`
-      : `${TRACK_URL}/${id}`;
-    const response = await fetch(url, { method: "DELETE" });
-    if (!response.ok) throw new Error(`Server returned ${response.status}`);
-    const data = await response.json();
-    trackedState = Array.isArray(data.tracked) ? data.tracked : trackedState;
+    if (isSupabaseEnabled() && currentUserId) {
+      const { error } = await window.iatraSupabase
+        .from("tracked_asteroids")
+        .delete()
+        .eq("user_id", currentUserId)
+        .eq("neo_id", String(id));
+      if (error) throw error;
+      await loadTracked();
+    } else {
+      const url = currentUserEmail
+        ? `${TRACK_URL}/${id}?user=${encodeURIComponent(currentUserEmail)}`
+        : `${TRACK_URL}/${id}`;
+      const response = await fetch(url, { method: "DELETE" });
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
+      const data = await response.json();
+      trackedState = Array.isArray(data.tracked) ? data.tracked : trackedState;
+    }
     renderTracked();
     applyFilters();
   } catch (error) {
@@ -755,11 +825,17 @@ async function getNEOData(startDate, endDate) {
   }
 }
 
-loadUserSession();
-const today = getTodayString();
-if (startDateInput && endDateInput) {
-  startDateInput.value = today;
-  endDateInput.value = today;
+async function initDashboard() {
+  const ok = await loadUserSession();
+  if (!ok) return;
+  const today = getTodayString();
+  if (startDateInput && endDateInput) {
+    startDateInput.value = today;
+    endDateInput.value = today;
+  }
+  wireControls();
+  await loadTracked();
+  getNEOData(today, today);
 }
-wireControls();
-getNEOData(today, today);
+
+initDashboard();
