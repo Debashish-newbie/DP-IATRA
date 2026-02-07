@@ -447,27 +447,50 @@ function startSimulation() {
   const renderer = new THREE.WebGLRenderer({ canvas: asteroidCanvas, antialias: true, alpha: true });
   renderer.setPixelRatio(window.devicePixelRatio || 1);
   renderer.setSize(width, height, false);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-  camera.position.set(0, 0, 4.5);
+  scene.fog = new THREE.Fog(0x05050a, 6, 14);
+  const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 120);
+  camera.position.set(2.8, 1.6, 4.6);
+  camera.lookAt(0, 0, 0);
 
-  const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+  const ambient = new THREE.AmbientLight(0x9fb3ff, 0.32);
   scene.add(ambient);
-  const keyLight = new THREE.DirectionalLight(0x35f0c8, 0.8);
-  keyLight.position.set(3, 2, 4);
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.05);
+  keyLight.position.set(3, 2, 5);
+  keyLight.castShadow = false;
   scene.add(keyLight);
-  const rimLight = new THREE.DirectionalLight(0xff5e7e, 0.6);
-  rimLight.position.set(-3, -2, -4);
+  const rimLight = new THREE.DirectionalLight(0x87e9ff, 0.5);
+  rimLight.position.set(-3, 1.2, -3);
   scene.add(rimLight);
+  const fillLight = new THREE.PointLight(0xffc38a, 0.5, 12);
+  fillLight.position.set(-2.2, -0.8, 1.2);
+  scene.add(fillLight);
 
   const planets = [];
+  const starField = createStarField();
+  scene.add(starField);
+
+  const sun = createSun();
+  sun.position.set(-3.4, 0.9, -2.4);
+  scene.add(sun);
+
+  const orbitRing = createOrbitRing(2.2);
+  orbitRing.rotation.x = THREE.MathUtils.degToRad(75);
+  orbitRing.rotation.y = THREE.MathUtils.degToRad(18);
+  scene.add(orbitRing);
+
   const earthGroup = new THREE.Group();
   const earthTexture = createEarthTexture();
+  const earthNormal = createEarthNormalTexture();
   const earthMesh = new THREE.Mesh(
     new THREE.SphereGeometry(0.7, 48, 48),
     new THREE.MeshStandardMaterial({
       map: earthTexture,
+      normalMap: earthNormal,
       roughness: 0.6,
       metalness: 0.05
     })
@@ -475,38 +498,39 @@ function startSimulation() {
   earthMesh.rotation.z = THREE.MathUtils.degToRad(23.5);
   earthGroup.add(earthMesh);
   scene.add(earthGroup);
-  planets.push({ group: earthGroup, speed: 0.15, mesh: earthMesh });
+  planets.push({ group: earthGroup, speed: 0.08, mesh: earthMesh });
 
-  const asteroidGeometry = new THREE.IcosahedronGeometry(0.18, 1);
-  const position = asteroidGeometry.attributes.position;
-  for (let i = 0; i < position.count; i += 1) {
-    const x = position.getX(i);
-    const y = position.getY(i);
-    const z = position.getZ(i);
-    const noise = 0.2 * Math.sin(x * 7) + 0.14 * Math.cos(y * 6) + 0.12 * Math.sin(z * 5);
-    position.setXYZ(i, x + x * noise, y + y * noise, z + z * noise);
-  }
-  asteroidGeometry.computeVertexNormals();
+  const planetGroup = new THREE.Group();
+  const mars = createPlanet(0.32, "#c9794b");
+  mars.position.set(1.8, 0.1, -1.2);
+  planetGroup.add(mars);
+  planets.push({ group: planetGroup, speed: 0.05, mesh: mars });
 
-  const asteroidMaterial = new THREE.MeshStandardMaterial({
-    color: 0x9aa0aa,
-    roughness: 0.85,
-    metalness: 0.1
-  });
+  const venus = createPlanet(0.26, "#caa574");
+  venus.position.set(-1.6, -0.05, 1.3);
+  planetGroup.add(venus);
+  planets.push({ group: planetGroup, speed: 0.06, mesh: venus });
 
-  const asteroid = new THREE.Mesh(asteroidGeometry, asteroidMaterial);
-  const asteroidOrbit = new THREE.Group();
-  asteroid.position.set(1.6, 0.2, 0);
-  asteroidOrbit.add(asteroid);
-  scene.add(asteroidOrbit);
+  const moon = createPlanet(0.12, "#b9b9c2", 0.75);
+  moon.position.set(0.95, 0.05, 0.2);
+  planetGroup.add(moon);
+  planets.push({ group: planetGroup, speed: 0.12, mesh: moon });
+
+  scene.add(planetGroup);
+
+  const asteroidBelt = createAsteroidBelt(42, 1.3, 2.2);
+  scene.add(asteroidBelt.group);
 
   simulationState = {
     renderer,
     scene,
     camera,
-    asteroid,
     planets,
-    asteroidOrbit,
+    starField,
+    sun,
+    orbitRing,
+    planetGroup,
+    asteroidBelt,
     frameId: null,
     dragging: false,
     lastX: 0,
@@ -528,12 +552,26 @@ function stopSimulation() {
   if (!simulationState.renderer) return;
   cancelAnimationFrame(simulationState.frameId);
   simulationState.renderer.dispose();
-  simulationState.asteroid?.geometry?.dispose();
-  simulationState.asteroid?.material?.dispose();
+  if (simulationState.asteroidBelt) {
+    simulationState.asteroidBelt.meshes.forEach((mesh) => {
+      mesh.geometry.dispose();
+      mesh.material.dispose();
+    });
+    simulationState.asteroidBelt.group?.children?.forEach((child) => {
+      if (child.geometry) child.geometry.dispose?.();
+      if (child.material) child.material.dispose?.();
+    });
+  }
   simulationState.planets?.forEach((planet) => {
     planet.mesh.geometry.dispose();
     planet.mesh.material.dispose();
   });
+  simulationState.starField?.geometry?.dispose();
+  simulationState.starField?.material?.dispose();
+  simulationState.sun?.geometry?.dispose();
+  simulationState.sun?.material?.dispose();
+  simulationState.orbitRing?.geometry?.dispose();
+  simulationState.orbitRing?.material?.dispose();
 
   asteroidCanvas.removeEventListener("pointerdown", onSimulationPointerDown);
   asteroidCanvas.removeEventListener("pointermove", onSimulationPointerMove);
@@ -546,9 +584,12 @@ function stopSimulation() {
     renderer: null,
     scene: null,
     camera: null,
-    asteroid: null,
     planets: [],
-    asteroidOrbit: null,
+    starField: null,
+    sun: null,
+    orbitRing: null,
+    planetGroup: null,
+    asteroidBelt: null,
     frameId: null,
     dragging: false,
     lastX: 0,
@@ -559,7 +600,7 @@ function stopSimulation() {
 
 function animateSimulation() {
   if (!simulationState.renderer) return;
-  const { renderer, scene, camera, asteroid, planets, startTime, asteroidOrbit } = simulationState;
+  const { renderer, scene, camera, planets, startTime, starField, asteroidBelt, sun, planetGroup } = simulationState;
   const elapsed = (performance.now() - startTime) / 1000;
 
   planets.forEach((planet, index) => {
@@ -567,15 +608,152 @@ function animateSimulation() {
     planet.mesh.rotation.y = angle * 1.5;
   });
 
-  if (asteroidOrbit) {
-    asteroidOrbit.rotation.y = elapsed * 0.8;
-    asteroidOrbit.rotation.x = Math.sin(elapsed * 0.4) * 0.2;
+  if (starField) {
+    starField.rotation.y = elapsed * 0.01;
   }
 
-  asteroid.rotation.y += 0.01;
-  asteroid.rotation.x += 0.006;
+  if (sun) {
+    sun.rotation.y = elapsed * 0.12;
+  }
+
+  if (planetGroup) {
+    planetGroup.rotation.y = elapsed * 0.08;
+  }
+
+  if (asteroidBelt) {
+    asteroidBelt.group.rotation.y = elapsed * 0.08;
+    asteroidBelt.meshes.forEach((mesh, index) => {
+      mesh.rotation.y += 0.01 + index * 0.0002;
+      mesh.rotation.x += 0.006 + index * 0.0001;
+    });
+  }
   renderer.render(scene, camera);
   simulationState.frameId = requestAnimationFrame(animateSimulation);
+}
+
+function createStarField() {
+  const starCount = 1400;
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(starCount * 3);
+  const colors = new Float32Array(starCount * 3);
+
+  const color = new THREE.Color();
+  for (let i = 0; i < starCount; i += 1) {
+    const radius = 8 + Math.random() * 10;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    const idx = i * 3;
+    positions[idx] = radius * Math.sin(phi) * Math.cos(theta);
+    positions[idx + 1] = radius * Math.cos(phi);
+    positions[idx + 2] = radius * Math.sin(phi) * Math.sin(theta);
+
+    const temp = 0.65 + Math.random() * 0.35;
+    color.setHSL(0.6, 0.2, temp);
+    colors[idx] = color.r;
+    colors[idx + 1] = color.g;
+    colors[idx + 2] = color.b;
+  }
+
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+
+  const material = new THREE.PointsMaterial({
+    size: 0.035,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.8,
+    depthWrite: false
+  });
+
+  return new THREE.Points(geometry, material);
+}
+
+function createSun() {
+  const geometry = new THREE.SphereGeometry(0.55, 32, 32);
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+  const gradient = ctx.createRadialGradient(128, 128, 10, 128, 128, 120);
+  gradient.addColorStop(0, "#fff9c4");
+  gradient.addColorStop(0.45, "#ffd57a");
+  gradient.addColorStop(0.7, "#ff9f5a");
+  gradient.addColorStop(1, "rgba(255, 120, 60, 0)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 256, 256);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+
+  return new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      blending: THREE.AdditiveBlending
+    })
+  );
+}
+
+function createOrbitRing(radius) {
+  const curve = new THREE.EllipseCurve(0, 0, radius, radius * 0.78, 0, Math.PI * 2, false, 0);
+  const points = curve.getPoints(120);
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = new THREE.LineBasicMaterial({
+    color: 0x6bd7ff,
+    transparent: true,
+    opacity: 0.18
+  });
+  return new THREE.LineLoop(geometry, material);
+}
+
+function createPlanet(radius, color, roughness = 0.85) {
+  return new THREE.Mesh(
+    new THREE.SphereGeometry(radius, 32, 32),
+    new THREE.MeshStandardMaterial({
+      color,
+      roughness,
+      metalness: 0.05
+    })
+  );
+}
+
+function createAsteroidBelt(count, innerRadius, outerRadius) {
+  const group = new THREE.Group();
+  const texture = createAsteroidTexture();
+  const meshes = [];
+
+  for (let i = 0; i < count; i += 1) {
+    const size = 0.035 + Math.random() * 0.075;
+    const geometry = new THREE.IcosahedronGeometry(size, 2);
+    const position = geometry.attributes.position;
+    for (let j = 0; j < position.count; j += 1) {
+      const x = position.getX(j);
+      const y = position.getY(j);
+      const z = position.getZ(j);
+      const noise = 0.38 * Math.sin(x * 7.4) + 0.22 * Math.cos(y * 6.2) + 0.2 * Math.sin(z * 5.6);
+      position.setXYZ(j, x + x * noise, y + y * noise, z + z * noise);
+    }
+    geometry.computeVertexNormals();
+
+    const material = new THREE.MeshStandardMaterial({
+      map: texture,
+      color: 0xb2b0a4,
+      roughness: 0.92,
+      metalness: 0.05
+    });
+
+    const mesh = new THREE.Mesh(geometry, material);
+    const radius = innerRadius + Math.random() * (outerRadius - innerRadius);
+    const angle = Math.random() * Math.PI * 2;
+    const tilt = (Math.random() - 0.5) * 0.4;
+    mesh.position.set(Math.cos(angle) * radius, tilt, Math.sin(angle) * radius);
+    mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+    group.add(mesh);
+    meshes.push(mesh);
+  }
+
+  return { group, meshes };
 }
 
 function createEarthTexture() {
@@ -602,6 +780,17 @@ function createEarthTexture() {
     ctx.fill();
   }
 
+  ctx.fillStyle = "rgba(30, 100, 40, 0.8)";
+  for (let i = 0; i < 18; i += 1) {
+    const x = Math.random() * canvas.width;
+    const y = Math.random() * canvas.height;
+    const w = 18 + Math.random() * 40;
+    const h = 12 + Math.random() * 28;
+    ctx.beginPath();
+    ctx.ellipse(x, y, w, h, Math.random() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
   for (let i = 0; i < 35; i += 1) {
     const x = Math.random() * canvas.width;
@@ -617,6 +806,71 @@ function createEarthTexture() {
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.needsUpdate = true;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function createEarthNormalTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#7f7fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "rgba(110, 110, 255, 0.6)";
+  for (let i = 0; i < 200; i += 1) {
+    const x = Math.random() * canvas.width;
+    const y = Math.random() * canvas.height;
+    const size = 1 + Math.random() * 2.8;
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  return texture;
+}
+
+function createAsteroidTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#6e6a63";
+  ctx.fillRect(0, 0, 256, 256);
+
+  for (let i = 0; i < 900; i += 1) {
+    const x = Math.random() * 256;
+    const y = Math.random() * 256;
+    const r = Math.random() * 2.2;
+    const shade = 80 + Math.random() * 90;
+    ctx.fillStyle = `rgb(${shade}, ${shade - 10}, ${shade - 20})`;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  for (let i = 0; i < 16; i += 1) {
+    const x = 20 + Math.random() * 216;
+    const y = 20 + Math.random() * 216;
+    const radius = 8 + Math.random() * 18;
+    const gradient = ctx.createRadialGradient(x, y, 1, x, y, radius);
+    gradient.addColorStop(0, "rgba(40, 36, 32, 0.7)");
+    gradient.addColorStop(1, "rgba(120, 110, 100, 0.1)");
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }
 

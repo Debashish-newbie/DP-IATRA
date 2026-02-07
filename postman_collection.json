@@ -1,0 +1,138 @@
+{
+  "info": {
+    "name": "Cosmic Watch API",
+    "_postman_id": "9f7f2e8e-3c6c-4b3d-9b5a-6f0c3a9b3b21",
+    "description": "Postman collection for the Cosmic Watch backend. Includes asteroid feed and tracked-object endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Get Asteroids (Today)",
+      "description": "Fetch NASA NEO feed for today (backend determines today based on server time).",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/asteroids",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "asteroids"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Asteroids (Date Range)",
+      "description": "Fetch NASA NEO feed for a specific date range using start/end query params.",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/asteroids?start=2026-02-01&end=2026-02-02",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "asteroids"
+          ],
+          "query": [
+            {
+              "key": "start",
+              "value": "2026-02-01"
+            },
+            {
+              "key": "end",
+              "value": "2026-02-02"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Tracked",
+      "description": "Fetch tracked asteroids for a specific user (email query param).",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/tracked?user=cadet@iatra.space",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "tracked"
+          ],
+          "query": [
+            {
+              "key": "user",
+              "value": "cadet@iatra.space"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Add Tracked",
+      "description": "Save a tracked asteroid entry for a user. Requires JSON body.",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"123456\",\n  \"name\": \"(2024 AB)\",\n  \"approachDate\": \"2026-02-01\",\n  \"missKm\": 850000,\n  \"isHazardous\": false,\n  \"hazardLabel\": \"Low\",\n  \"user\": \"cadet@iatra.space\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/tracked",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "tracked"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Remove Tracked",
+      "description": "Remove a tracked asteroid by ID for a specific user (email query param).",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/tracked/123456?user=cadet@iatra.space",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "tracked",
+            "123456"
+          ],
+          "query": [
+            {
+              "key": "user",
+              "value": "cadet@iatra.space"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
