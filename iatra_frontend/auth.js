@@ -51,13 +51,6 @@ function setMessage(element, text, tone = "info") {
   element.dataset.tone = tone;
 }
 
-function redirectToSignup(messageEl) {
-  setMessage(messageEl, "No account found. Redirecting to signup...", "warn");
-  setTimeout(() => {
-    window.location.href = "signup.html";
-  }, 1200);
-}
-
 function redirectToDashboard() {
   window.location.href = "dashboard.html";
 }
@@ -77,7 +70,7 @@ async function handleLogin(event) {
   const user = users.find((entry) => normalizeEmail(entry.email) === email);
 
   if (!user) {
-    redirectToSignup(messageEl);
+    setMessage(messageEl, "Account not found. Try again or use the signup link.", "warn");
     return;
   }
 

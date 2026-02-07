@@ -188,7 +188,7 @@ function renderGrid(list) {
     card.innerHTML = `
       <div class="neo-title">
         <h3>${neo.name}</h3>
-        <span class="badge ${hazard.className}">${hazard.label}</span>
+        <span class="badge ${hazard.className}">${hazard.label} Risk</span>
       </div>
       <div class="neo-meta">
         <div>
