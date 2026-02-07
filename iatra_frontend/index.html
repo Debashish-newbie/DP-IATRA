@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IATRA - NEO Hazard Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <div class="orbital-bg"></div>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">IATRA / Near-Earth Object Monitor</p>
+        <h1>Today's NEO Hazard Dashboard</h1>
+      </div>
+      <div class="meta">
+        <div class="meta-block">
+          <span class="meta-label">Last Updated</span>
+          <span class="meta-value" id="lastUpdated">--</span>
+        </div>
+        <div class="meta-block">
+          <span class="meta-label">Source</span>
+          <span class="meta-value">NASA NeoWS</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="stats" id="statsGrid">
+      <article class="stat-card">
+        <span class="stat-label">Objects Tracked</span>
+        <span class="stat-value" id="statTotal">--</span>
+        <span class="stat-sub">Detected in today's feed</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Potentially Hazardous</span>
+        <span class="stat-value warning" id="statHazardous">--</span>
+        <span class="stat-sub">Flagged by NASA</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Closest Pass</span>
+        <span class="stat-value" id="statClosest">--</span>
+        <span class="stat-sub">Minimum miss distance</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Largest Diameter</span>
+        <span class="stat-value" id="statLargest">--</span>
+        <span class="stat-sub">Max estimated size</span>
+      </article>
+    </section>
+
+    <section class="tabs">
+      <button class="tab-button active" data-tab="overview">Overview</button>
+      <button class="tab-button" data-tab="recent">Recent Close Approaches</button>
+    </section>
+
+    <section class="tab-panels">
+      <div class="tab-panel active" data-panel="overview">
+        <section class="controls">
+          <div class="control-group">
+            <button class="chip active" data-filter="all">All Objects</button>
+            <button class="chip" data-filter="hazardous">Hazardous Only</button>
+            <button class="chip" data-filter="close">Close Pass (&lt; 1M km)</button>
+          </div>
+          <div class="control-group">
+            <label class="search">
+              <span>Search</span>
+              <input id="searchInput" type="search" placeholder="Asteroid name or ID">
+            </label>
+          </div>
+        </section>
+
+        <section class="grid">
+          <div class="grid-header">
+            <h2>Object Detail Feed</h2>
+            <p>Sorted by miss distance (closest first).</p>
+          </div>
+          <div id="neoGrid" class="neo-grid"></div>
+        </section>
+      </div>
+
+      <div class="tab-panel" data-panel="recent">
+        <section class="grid">
+          <div class="grid-header">
+            <h2>Recent Close Approaches</h2>
+            <p>Closest approach events from today's feed.</p>
+          </div>
+          <div class="approach-list" id="closeApproachList"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="status" id="statusPanel">
+      <div class="status-card">
+        <h3>Fetching live data...</h3>
+        <p>Waiting for your local server at <span>http://localhost:5000/api/asteroids</span></p>
+      </div>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+
+</html>

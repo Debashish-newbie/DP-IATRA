@@ -1,0 +1,26 @@
+{
+  "name": "iatra_backend",
+  "version": "1.0.0",
+  "description": "IATRA Backend - NEO Authentication and Data Server",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "NASA",
+    "NEO",
+    "Asteroid",
+    "Authentication"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.4",
+    "express": "^5.2.1",
+    "nodemon": "^3.1.11"
+  }
+}
