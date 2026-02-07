@@ -1,5 +1,5 @@
 const API_URL = "https://dp-iatra.onrender.com/api/asteroids";
-const TRACK_URL = "http:/https://dp-iatra.onrender.com/api/tracked";
+const TRACK_URL = "https://dp-iatra.onrender.com/api/tracked";
 
 const state = {
   neos: [],
