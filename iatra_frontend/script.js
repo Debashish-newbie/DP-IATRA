@@ -1,4 +1,5 @@
 const API_URL = "http://localhost:5000/api/asteroids";
+const TRACK_URL = "http://localhost:5000/api/tracked";
 
 const state = {
   neos: [],
@@ -13,11 +14,49 @@ const statClosest = document.getElementById("statClosest");
 const statLargest = document.getElementById("statLargest");
 const neoGrid = document.getElementById("neoGrid");
 const closeApproachList = document.getElementById("closeApproachList");
+const trackedList = document.getElementById("trackedList");
 const statusPanel = document.getElementById("statusPanel");
 const searchInput = document.getElementById("searchInput");
-const filterButtons = document.querySelectorAll(".chip");
+const filterButtons = document.querySelectorAll(".chip[data-filter]");
 const tabButtons = document.querySelectorAll(".tab-button");
 const tabPanels = document.querySelectorAll(".tab-panel");
+const userNameEl = document.getElementById("userName");
+const logoutButton = document.getElementById("logoutButton");
+const startDateInput = document.getElementById("startDate");
+const endDateInput = document.getElementById("endDate");
+const applyRangeButton = document.getElementById("applyRange");
+const openSimulationButton = document.getElementById("openSimulation");
+const closeSimulationButton = document.getElementById("closeSimulation");
+const simulationModal = document.getElementById("simulationModal");
+const asteroidCanvas = document.getElementById("asteroidCanvas");
+
+let simulationState = {
+  renderer: null,
+  scene: null,
+  camera: null,
+  asteroid: null,
+  planets: [],
+  frameId: null,
+  dragging: false,
+  lastX: 0,
+  lastY: 0,
+  startTime: 0
+};
+
+let trackedState = [];
+let currentUserEmail = "";
+
+function getTodayString() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function buildApiUrl(startDate, endDate) {
+  const params = new URLSearchParams();
+  if (startDate) params.set("start", startDate);
+  if (endDate) params.set("end", endDate);
+  const query = params.toString();
+  return query ? `${API_URL}?${query}` : API_URL;
+}
 
 function formatNumber(value, digits = 0) {
   if (Number.isNaN(value) || value === null || value === undefined) return "--";
@@ -40,8 +79,47 @@ function setStatus(show, title, message) {
 }
 
 function hazardLevelFor(neo) {
-  if (neo.isHazardous) return { label: "High", className: "high" };
-  if (neo.missKm && neo.missKm < 1_000_000) return { label: "Elevated", className: "elevated" };
+  const diameterKm = Number.isFinite(neo.diameterKm) ? neo.diameterKm : null;
+  const missKm = Number.isFinite(neo.missKm) ? neo.missKm : null;
+  const velocityKph = Number.isFinite(neo.velocityKph) ? neo.velocityKph : null;
+  const massKg = Number.isFinite(neo.massKg) ? neo.massKg : null;
+
+  let score = 0;
+
+  // Miss distance is the strongest driver.
+  if (missKm !== null) {
+    if (missKm < 50_000) score += 3;
+    else if (missKm < 200_000) score += 2;
+    else if (missKm < 1_000_000) score += 1;
+  }
+
+  // Larger objects raise risk.
+  if (diameterKm !== null) {
+    if (diameterKm >= 1.0) score += 3;
+    else if (diameterKm >= 0.3) score += 2;
+    else if (diameterKm >= 0.14) score += 1;
+  }
+
+  // Heavier objects increase potential impact.
+  if (massKg !== null) {
+    if (massKg >= 1e12) score += 2;
+    else if (massKg >= 1e10) score += 1;
+  }
+
+  // Faster objects add a small bump.
+  if (velocityKph !== null) {
+    if (velocityKph >= 70_000) score += 1;
+    else if (velocityKph <= 20_000) score -= 1;
+  }
+
+  // Preserve NASA's hazardous flag as a strong signal.
+  if (neo.isHazardous) score += 2;
+
+  // Ensure any miss distance under 1M km is at least Moderate (Medium).
+  if (missKm !== null && missKm < 1_000_000 && score < 3) score = 3;
+
+  if (score >= 6) return { label: "High", className: "high" };
+  if (score >= 3) return { label: "Medium", className: "elevated" };
   return { label: "Low", className: "low" };
 }
 
@@ -55,12 +133,19 @@ function normalizeData(data) {
       const missKm = parseFloat(approach?.miss_distance?.kilometers);
       const velocity = parseFloat(approach?.relative_velocity?.kilometers_per_hour);
       const diameter = neo?.estimated_diameter?.kilometers?.estimated_diameter_max;
+      const densityKgPerM3 = 3000;
+      const radiusM = Number.isFinite(diameter) ? (diameter * 1000) / 2 : null;
+      const massKg =
+        radiusM !== null
+          ? (4 / 3) * Math.PI * Math.pow(radiusM, 3) * densityKgPerM3
+          : null;
 
       payload.push({
         id: neo.id,
         name: neo.name,
         magnitude: neo.absolute_magnitude_h,
         diameterKm: diameter,
+        massKg,
         isHazardous: Boolean(neo.is_potentially_hazardous_asteroid),
         missKm: Number.isFinite(missKm) ? missKm : null,
         velocityKph: Number.isFinite(velocity) ? velocity : null,
@@ -99,6 +184,7 @@ function renderGrid(list) {
     const hazard = hazardLevelFor(neo);
     const card = document.createElement("article");
     card.className = "neo-card";
+    const isTracked = trackedState.some((item) => String(item.id) === String(neo.id));
     card.innerHTML = `
       <div class="neo-title">
         <h3>${neo.name}</h3>
@@ -130,6 +216,9 @@ function renderGrid(list) {
           <strong>${neo.magnitude ?? "--"}</strong>
         </div>
       </div>
+      <button class="track-button ${isTracked ? "active" : ""}" data-track-id="${neo.id}" type="button">
+        ${isTracked ? "Tracked" : "Track"}
+      </button>
     `;
     fragment.appendChild(card);
   });
@@ -233,16 +322,429 @@ function wireControls() {
       setActiveTab(button.dataset.tab);
     });
   });
+
+  if (applyRangeButton) {
+    applyRangeButton.addEventListener("click", () => {
+      const startDate = startDateInput?.value;
+      const endDate = endDateInput?.value;
+      if (!startDate || !endDate) return;
+      getNEOData(startDate, endDate);
+    });
+  }
+
+  if (logoutButton) {
+    logoutButton.addEventListener("click", () => {
+      sessionStorage.removeItem("iatra_session");
+      window.location.href = "index.html";
+    });
+  }
+
+  if (openSimulationButton && simulationModal) {
+    openSimulationButton.addEventListener("click", () => {
+      simulationModal.classList.add("show");
+      startSimulation();
+    });
+  }
+
+  if (closeSimulationButton && simulationModal) {
+    closeSimulationButton.addEventListener("click", closeSimulation);
+  }
+
+  if (simulationModal) {
+    simulationModal.addEventListener("click", (event) => {
+      if (event.target === simulationModal) closeSimulation();
+    });
+  }
+
+  if (neoGrid) {
+    neoGrid.addEventListener("click", (event) => {
+      const button = event.target.closest(".track-button");
+      if (!button) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const id = button.dataset.trackId;
+      const neo = state.neos.find((item) => String(item.id) === String(id));
+      if (!neo) return;
+      toggleTrack(neo);
+    });
+  }
+
+  if (trackedList) {
+    trackedList.addEventListener("click", (event) => {
+      const button = event.target.closest(".remove-button");
+      if (!button) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const id = button.dataset.trackId;
+      removeTracked(id);
+    });
+  }
 }
 
-async function getNEOData() {
+function loadUserSession() {
+  const raw = sessionStorage.getItem("iatra_session");
+  if (!raw) {
+    window.location.href = "index.html";
+    return;
+  }
   try {
-    setStatus(true, "Fetching live data...", `Waiting for your local server at ${API_URL}`);
-    const response = await fetch(API_URL);
+    const session = JSON.parse(raw);
+    const name = session?.name || session?.email || "Cadet";
+    if (userNameEl) userNameEl.textContent = name;
+    currentUserEmail = session?.email || "";
+  } catch (error) {
+    sessionStorage.removeItem("iatra_session");
+    window.location.href = "index.html";
+  }
+}
+
+function closeSimulation() {
+  if (!simulationModal) return;
+  simulationModal.classList.remove("show");
+  stopSimulation();
+}
+
+function startSimulation() {
+  if (!asteroidCanvas || !window.THREE) return;
+  if (simulationState.renderer) return;
+
+  const width = asteroidCanvas.clientWidth || 800;
+  const height = asteroidCanvas.clientHeight || 420;
+  const renderer = new THREE.WebGLRenderer({ canvas: asteroidCanvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  renderer.setSize(width, height, false);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+  camera.position.set(0, 0, 4.5);
+
+  const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambient);
+  const keyLight = new THREE.DirectionalLight(0x35f0c8, 0.8);
+  keyLight.position.set(3, 2, 4);
+  scene.add(keyLight);
+  const rimLight = new THREE.DirectionalLight(0xff5e7e, 0.6);
+  rimLight.position.set(-3, -2, -4);
+  scene.add(rimLight);
+
+  const planets = [];
+  const earthGroup = new THREE.Group();
+  const earthTexture = createEarthTexture();
+  const earthMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.7, 48, 48),
+    new THREE.MeshStandardMaterial({
+      map: earthTexture,
+      roughness: 0.6,
+      metalness: 0.05
+    })
+  );
+  earthMesh.rotation.z = THREE.MathUtils.degToRad(23.5);
+  earthGroup.add(earthMesh);
+  scene.add(earthGroup);
+  planets.push({ group: earthGroup, speed: 0.15, mesh: earthMesh });
+
+  const asteroidGeometry = new THREE.IcosahedronGeometry(0.18, 1);
+  const position = asteroidGeometry.attributes.position;
+  for (let i = 0; i < position.count; i += 1) {
+    const x = position.getX(i);
+    const y = position.getY(i);
+    const z = position.getZ(i);
+    const noise = 0.2 * Math.sin(x * 7) + 0.14 * Math.cos(y * 6) + 0.12 * Math.sin(z * 5);
+    position.setXYZ(i, x + x * noise, y + y * noise, z + z * noise);
+  }
+  asteroidGeometry.computeVertexNormals();
+
+  const asteroidMaterial = new THREE.MeshStandardMaterial({
+    color: 0x9aa0aa,
+    roughness: 0.85,
+    metalness: 0.1
+  });
+
+  const asteroid = new THREE.Mesh(asteroidGeometry, asteroidMaterial);
+  const asteroidOrbit = new THREE.Group();
+  asteroid.position.set(1.6, 0.2, 0);
+  asteroidOrbit.add(asteroid);
+  scene.add(asteroidOrbit);
+
+  simulationState = {
+    renderer,
+    scene,
+    camera,
+    asteroid,
+    planets,
+    asteroidOrbit,
+    frameId: null,
+    dragging: false,
+    lastX: 0,
+    lastY: 0,
+    startTime: performance.now()
+  };
+
+  asteroidCanvas.addEventListener("pointerdown", onSimulationPointerDown);
+  asteroidCanvas.addEventListener("pointermove", onSimulationPointerMove);
+  asteroidCanvas.addEventListener("pointerup", onSimulationPointerUp);
+  asteroidCanvas.addEventListener("pointerleave", onSimulationPointerUp);
+  asteroidCanvas.addEventListener("wheel", onSimulationWheel, { passive: true });
+  window.addEventListener("resize", onSimulationResize);
+
+  animateSimulation();
+}
+
+function stopSimulation() {
+  if (!simulationState.renderer) return;
+  cancelAnimationFrame(simulationState.frameId);
+  simulationState.renderer.dispose();
+  simulationState.asteroid?.geometry?.dispose();
+  simulationState.asteroid?.material?.dispose();
+  simulationState.planets?.forEach((planet) => {
+    planet.mesh.geometry.dispose();
+    planet.mesh.material.dispose();
+  });
+
+  asteroidCanvas.removeEventListener("pointerdown", onSimulationPointerDown);
+  asteroidCanvas.removeEventListener("pointermove", onSimulationPointerMove);
+  asteroidCanvas.removeEventListener("pointerup", onSimulationPointerUp);
+  asteroidCanvas.removeEventListener("pointerleave", onSimulationPointerUp);
+  asteroidCanvas.removeEventListener("wheel", onSimulationWheel);
+  window.removeEventListener("resize", onSimulationResize);
+
+  simulationState = {
+    renderer: null,
+    scene: null,
+    camera: null,
+    asteroid: null,
+    planets: [],
+    asteroidOrbit: null,
+    frameId: null,
+    dragging: false,
+    lastX: 0,
+    lastY: 0,
+    startTime: 0
+  };
+}
+
+function animateSimulation() {
+  if (!simulationState.renderer) return;
+  const { renderer, scene, camera, asteroid, planets, startTime, asteroidOrbit } = simulationState;
+  const elapsed = (performance.now() - startTime) / 1000;
+
+  planets.forEach((planet, index) => {
+    const angle = elapsed * planet.speed + index;
+    planet.mesh.rotation.y = angle * 1.5;
+  });
+
+  if (asteroidOrbit) {
+    asteroidOrbit.rotation.y = elapsed * 0.8;
+    asteroidOrbit.rotation.x = Math.sin(elapsed * 0.4) * 0.2;
+  }
+
+  asteroid.rotation.y += 0.01;
+  asteroid.rotation.x += 0.006;
+  renderer.render(scene, camera);
+  simulationState.frameId = requestAnimationFrame(animateSimulation);
+}
+
+function createEarthTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+
+  const ocean = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  ocean.addColorStop(0, "#0b2d5c");
+  ocean.addColorStop(0.5, "#0f4a8a");
+  ocean.addColorStop(1, "#0b1f3a");
+  ctx.fillStyle = ocean;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "rgba(80, 180, 110, 0.9)";
+  for (let i = 0; i < 22; i += 1) {
+    const x = Math.random() * canvas.width;
+    const y = Math.random() * canvas.height;
+    const w = 30 + Math.random() * 80;
+    const h = 18 + Math.random() * 50;
+    ctx.beginPath();
+    ctx.ellipse(x, y, w, h, Math.random() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+  for (let i = 0; i < 35; i += 1) {
+    const x = Math.random() * canvas.width;
+    const y = Math.random() * canvas.height;
+    const w = 40 + Math.random() * 90;
+    const h = 12 + Math.random() * 30;
+    ctx.beginPath();
+    ctx.ellipse(x, y, w, h, Math.random() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function onSimulationPointerDown(event) {
+  simulationState.dragging = true;
+  simulationState.lastX = event.clientX;
+  simulationState.lastY = event.clientY;
+}
+
+function onSimulationPointerMove(event) {
+  if (!simulationState.dragging || !simulationState.asteroid) return;
+  const deltaX = event.clientX - simulationState.lastX;
+  const deltaY = event.clientY - simulationState.lastY;
+  simulationState.asteroid.rotation.y += deltaX * 0.005;
+  simulationState.asteroid.rotation.x += deltaY * 0.005;
+  simulationState.lastX = event.clientX;
+  simulationState.lastY = event.clientY;
+}
+
+function onSimulationPointerUp() {
+  simulationState.dragging = false;
+}
+
+function onSimulationWheel(event) {
+  if (!simulationState.camera) return;
+  simulationState.camera.position.z = Math.min(8, Math.max(2.5, simulationState.camera.position.z + event.deltaY * 0.002));
+}
+
+function onSimulationResize() {
+  if (!simulationState.renderer || !simulationState.camera || !asteroidCanvas) return;
+  const width = asteroidCanvas.clientWidth || 800;
+  const height = asteroidCanvas.clientHeight || 420;
+  simulationState.camera.aspect = width / height;
+  simulationState.camera.updateProjectionMatrix();
+  simulationState.renderer.setSize(width, height, false);
+}
+
+async function loadTracked() {
+  try {
+    const url = currentUserEmail ? `${TRACK_URL}?user=${encodeURIComponent(currentUserEmail)}` : TRACK_URL;
+    const response = await fetch(url);
     if (!response.ok) throw new Error(`Server returned ${response.status}`);
     const data = await response.json();
+    trackedState = Array.isArray(data.tracked) ? data.tracked : [];
+  } catch (error) {
+    trackedState = [];
+  }
+  renderTracked();
+  applyFilters();
+}
 
+function renderTracked() {
+  if (!trackedList) return;
+  trackedList.innerHTML = "";
+  if (!trackedState.length) {
+    const empty = document.createElement("div");
+    empty.className = "status-card";
+    empty.textContent = "No tracked objects yet. Use the Track button on any asteroid.";
+    trackedList.appendChild(empty);
+    return;
+  }
+
+  const header = document.createElement("div");
+  header.className = "tracked-row header";
+  header.innerHTML = `
+    <div>Object</div>
+    <div>Miss Distance</div>
+    <div>Approach</div>
+    <div>Hazard</div>
+    <div>Actions</div>
+  `;
+  trackedList.appendChild(header);
+
+  const fragment = document.createDocumentFragment();
+  trackedState.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "tracked-row";
+    const hazardLabel = item.hazardLabel || (item.isHazardous ? "Hazardous" : "Nominal");
+    row.innerHTML = `
+      <div class="approach-cell">
+        <strong>${item.name}</strong>
+        <span>ID ${item.id}</span>
+      </div>
+      <div class="approach-cell">
+        <strong>${formatKm(item.missKm)}</strong>
+        <span>Miss Distance</span>
+      </div>
+      <div class="approach-cell">
+        <strong>${item.approachDate || "--"}</strong>
+        <span>Approach</span>
+      </div>
+      <div class="approach-cell">
+        <strong>${hazardLabel}</strong>
+        <span>Status</span>
+      </div>
+      <div class="approach-cell">
+        <button class="remove-button" data-track-id="${item.id}" type="button">Remove</button>
+      </div>
+    `;
+    fragment.appendChild(row);
+  });
+  trackedList.appendChild(fragment);
+}
+
+async function toggleTrack(neo) {
+  const isTracked = trackedState.some((item) => String(item.id) === String(neo.id));
+  if (isTracked) {
+    await removeTracked(neo.id);
+    return;
+  }
+
+  try {
+    const hazard = hazardLevelFor(neo);
+    const response = await fetch(TRACK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: neo.id,
+        name: neo.name,
+        approachDate: neo.approachDate,
+        missKm: neo.missKm,
+        isHazardous: neo.isHazardous,
+        hazardLabel: hazard.label,
+        user: currentUserEmail
+      })
+    });
+    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+    const data = await response.json();
+    trackedState = Array.isArray(data.tracked) ? data.tracked : trackedState;
+    renderTracked();
+    applyFilters();
+  } catch (error) {
+    console.error("TRACK ERROR:", error);
+  }
+}
+
+async function removeTracked(id) {
+  try {
+    const url = currentUserEmail
+      ? `${TRACK_URL}/${id}?user=${encodeURIComponent(currentUserEmail)}`
+      : `${TRACK_URL}/${id}`;
+    const response = await fetch(url, { method: "DELETE" });
+    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+    const data = await response.json();
+    trackedState = Array.isArray(data.tracked) ? data.tracked : trackedState;
+    renderTracked();
+    applyFilters();
+  } catch (error) {
+    console.error("TRACK REMOVE ERROR:", error);
+  }
+}
+
+async function getNEOData(startDate, endDate) {
+  try {
+    const requestUrl = buildApiUrl(startDate, endDate);
+    setStatus(true, "Fetching live data...", `Waiting for your local server at ${requestUrl}`);
+    const response = await fetch(requestUrl);
+    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+    const data = await response.json();
+    console.log(data)
     state.neos = normalizeData(data);
+    await loadTracked();
     updateStats(state.neos);
     lastUpdated.textContent = new Date().toLocaleString();
     applyFilters();
@@ -253,5 +755,11 @@ async function getNEOData() {
   }
 }
 
+loadUserSession();
+const today = getTodayString();
+if (startDateInput && endDateInput) {
+  startDateInput.value = today;
+  endDateInput.value = today;
+}
 wireControls();
-getNEOData();
+getNEOData(today, today);

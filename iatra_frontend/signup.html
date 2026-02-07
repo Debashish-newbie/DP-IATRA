@@ -6,102 +6,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IATRA - New Mission Access</title>
   <link rel="stylesheet" href="styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    /* Centering styles */
-    body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-    }
-
-    .auth-card {
-      width: 100%;
-      max-width: 400px;
-      padding: 40px;
-      text-align: center;
-      margin: auto;
-    }
-
-    .input-group {
-      margin-bottom: 20px;
-      text-align: left;
-    }
-
-    input {
-      width: 100%;
-      padding: 12px;
-      border-radius: 8px;
-      border: 1px solid var(--outline);
-      background: rgba(255, 255, 255, 0.05);
-      color: white;
-      margin-top: 8px;
-      font-family: "IBM Plex Mono", monospace;
-    }
-
-    button {
-      width: 100%;
-      padding: 12px;
-      background: var(--accent);
-      border: none;
-      border-radius: 8px;
-      font-weight: bold;
-      cursor: pointer;
-      margin-top: 10px;
-      font-family: "Space Grotesk", sans-serif;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    button:hover {
-      opacity: 0.9;
-    }
-
-    .link {
-      display: block;
-      margin-top: 20px;
-      color: var(--muted);
-      font-size: 0.85rem;
-      text-decoration: none;
-    }
-
-    .link:hover {
-      color: var(--text);
-    }
-
-    .error {
-      color: var(--accent-3);
-      font-size: 0.9rem;
-      margin-top: 10px;
-      min-height: 20px;
-    }
-  </style>
 </head>
 
-<body>
+<body class="auth-page">
   <div class="orbital-bg"></div>
 
-  <div class="stat-card auth-card">
-    <h1>NEW MISSION</h1>
-    <p class="eyebrow">Register Personnel</p>
+  <main class="auth-shell">
+    <section class="stat-card auth-card">
+      <p class="eyebrow">IATRA / New Mission</p>
+      <h1>Register Personnel</h1>
+      <p class="auth-subtitle">Create a new access profile for mission control.</p>
 
-    <div style="margin-top: 30px;">
-      <div class="input-group">
-        <label class="meta-label">Email</label>
-        <input type="email" id="email" placeholder="cadet@iatra.space">
-      </div>
-      <div class="input-group">
-        <label class="meta-label">Create Password</label>
-        <input type="password" id="password" placeholder="••••••••">
-      </div>
+      <form id="signupForm" class="auth-form" novalidate>
+        <label class="input-group">
+          <span class="meta-label">Full Name</span>
+          <input type="text" id="signupName" name="name" placeholder="Avery Patel" required>
+        </label>
 
-      <button onclick="signup()">Initialize Account</button>
-      <div id="error-msg" class="error"></div>
+        <label class="input-group">
+          <span class="meta-label">Email</span>
+          <input type="email" id="signupEmail" name="email" placeholder="cadet@iatra.space" required>
+        </label>
 
-      <a href="login.html" class="link">Already have clearance? Login</a>
-    </div>
-  </div>
+        <label class="input-group">
+          <span class="meta-label">Create Password</span>
+          <input type="password" id="signupPassword" name="password" placeholder="********" required>
+        </label>
+
+        <button type="submit" class="auth-button">Initialize Account</button>
+        <p id="signupMessage" class="auth-message" role="status" aria-live="polite"></p>
+      </form>
+
+      <a class="auth-link" href="index.html">Already have clearance? Login</a>
+    </section>
+  </main>
 
   <script src="auth.js"></script>
 </body>

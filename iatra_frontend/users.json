@@ -1,0 +1,14 @@
+{
+  "users": [
+    {
+      "name": "Avery Patel",
+      "email": "cadet@iatra.space",
+      "password": "orbit123"
+    },
+    {
+      "name": "Nova Chen",
+      "email": "nova@iatra.space",
+      "password": "neows2026"
+    }
+  ]
+}
