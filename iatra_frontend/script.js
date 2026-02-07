@@ -87,7 +87,7 @@ function setStatus(show, title, message) {
   statusPanel.querySelector("p").textContent = message;
 }
 
-function hazardLevelFor(neo) {
+function riskAnalyser(neo) {
   const diameterKm = Number.isFinite(neo.diameterKm) ? neo.diameterKm : null;
   const missKm = Number.isFinite(neo.missKm) ? neo.missKm : null;
   const velocityKph = Number.isFinite(neo.velocityKph) ? neo.velocityKph : null;
@@ -190,7 +190,7 @@ function renderGrid(list) {
 
   const fragment = document.createDocumentFragment();
   list.forEach((neo) => {
-    const hazard = hazardLevelFor(neo);
+    const hazard = riskAnalyser(neo);
     const card = document.createElement("article");
     card.className = "neo-card";
     const isTracked = trackedState.some((item) => String(item.neo_id || item.id) === String(neo.id));
@@ -252,7 +252,7 @@ function renderCloseApproaches(list) {
 
   const fragment = document.createDocumentFragment();
   list.slice(0, 8).forEach((neo) => {
-    const hazard = hazardLevelFor(neo);
+    const hazard = riskAnalyser(neo);
     const row = document.createElement("div");
     row.className = "approach-row";
     row.innerHTML = `
@@ -974,7 +974,7 @@ function renderTracked() {
       </div>
       <div class="approach-cell">
         <strong>${hazardLabel}</strong>
-        <span>Status</span>
+        <span>Hazard</span>
       </div>
       <div class="approach-cell">
         <button class="remove-button" data-track-id="${item.neo_id || item.id}" type="button">Remove</button>
@@ -993,7 +993,7 @@ async function toggleTrack(neo) {
   }
 
   try {
-    const hazard = hazardLevelFor(neo);
+    const hazard = riskAnalyser(neo);
     if (isSupabaseEnabled() && currentUserId) {
       const { error } = await window.iatraSupabase.from("tracked_asteroids").insert([
         {
