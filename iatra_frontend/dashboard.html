@@ -28,16 +28,19 @@
             View Asteroid
           </button>
         </div>
-        <div class="meta">
-          <div class="meta-block">
-            <span class="meta-label">Last Updated</span>
-            <span class="meta-value" id="lastUpdated">--</span>
+        <section class="controls range-controls">
+          <div class="control-group">
+            <label class="date-range">
+              <span>Start</span>
+              <input id="startDate" type="date">
+            </label>
+            <label class="date-range">
+              <span>End</span>
+              <input id="endDate" type="date">
+            </label>
+            <button class="chip apply-range" id="applyRange" type="button">Apply Range</button>
           </div>
-          <div class="meta-block">
-            <span class="meta-label">Source</span>
-            <span class="meta-value">NASA NeoWS</span>
-          </div>
-        </div>
+        </section>
       </div>
     </header>
 
@@ -77,17 +80,6 @@
             <button class="chip active" data-filter="all">All Objects</button>
             <button class="chip" data-filter="hazardous">Hazardous Only</button>
             <button class="chip" data-filter="close">Close Pass (&lt; 1M km)</button>
-          </div>
-          <div class="control-group">
-            <label class="date-range">
-              <span>Start</span>
-              <input id="startDate" type="date">
-            </label>
-            <label class="date-range">
-              <span>End</span>
-              <input id="endDate" type="date">
-            </label>
-            <button class="chip apply-range" id="applyRange" type="button">Apply Range</button>
           </div>
           <div class="control-group">
             <label class="search">
@@ -133,6 +125,17 @@
         <p>Waiting for your local server at <span>http://localhost:5000/api/asteroids</span></p>
       </div>
     </section>
+
+    <footer class="dashboard-footer">
+      <div class="meta-block">
+        <span class="meta-label">Last Updated</span>
+        <span class="meta-value" id="lastUpdated">--</span>
+      </div>
+      <div class="meta-block">
+        <span class="meta-label">Source</span>
+        <span class="meta-value">NASA NeoWS</span>
+      </div>
+    </footer>
   </div>
 
   <div class="modal" id="simulationModal" role="dialog" aria-modal="true" aria-labelledby="simulationTitle">

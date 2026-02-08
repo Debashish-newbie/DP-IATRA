@@ -326,6 +326,7 @@ function wireControls() {
     applyFilters();
   });
 
+
   tabButtons.forEach((button) => {
     button.addEventListener("click", () => {
       setActiveTab(button.dataset.tab);
