@@ -11,23 +11,28 @@
 <body>
   <div class="orbital-bg"></div>
   <div class="app">
+    <nav class="navbar">
+      <div class="nav-brand">
+        <p class="eyebrow"><span class="brand">Cosmic Watch</span></p>
+        <span class="nav-subtitle">Near-Earth Object Monitor</span>
+      </div>
+      <div class="nav-tabs">
+        <button class="tab-button active" data-tab="overview">Overview</button>
+        <button class="tab-button" data-tab="recent">Recent Close Approaches</button>
+        <button class="tab-button" data-tab="tracked">Tracked Objects</button>
+      </div>
+      <div class="user-inline">
+        <span class="meta-label">User</span>
+        <span class="meta-value" id="userName">--</span>
+        <button class="logout-button" id="logoutButton" type="button">Logout</button>
+      </div>
+    </nav>
+
     <header class="topbar">
       <div>
-        <p class="eyebrow"><span class="brand">Cosmic Watch</span> / Near-Earth Object Monitor</p>
         <h1 class="dashboard-title">NEO Hazard Dashboard</h1>
       </div>
       <div class="top-actions">
-        <div class="top-utility">
-          <div class="user-inline">
-            <span class="meta-label">User</span>
-            <span class="meta-value" id="userName">--</span>
-            <button class="logout-button" id="logoutButton" type="button">Logout</button>
-          </div>
-          <button class="eye-button" id="openSimulation" type="button" aria-haspopup="dialog"
-            aria-controls="simulationModal">
-            View Asteroid
-          </button>
-        </div>
         <section class="controls range-controls">
           <div class="control-group">
             <label class="date-range">
@@ -67,12 +72,6 @@
       </article>
     </section>
 
-    <section class="tabs">
-      <button class="tab-button active" data-tab="overview">Overview</button>
-      <button class="tab-button" data-tab="recent">Recent Close Approaches</button>
-      <button class="tab-button" data-tab="tracked">Tracked Objects</button>
-    </section>
-
     <section class="tab-panels">
       <div class="tab-panel active" data-panel="overview">
         <section class="controls">
@@ -82,17 +81,23 @@
             <button class="chip" data-filter="close">Close Pass (&lt; 1M km)</button>
           </div>
           <div class="control-group">
-            <label class="search">
-              <span>Search</span>
-              <input id="searchInput" type="search" placeholder="Asteroid name or ID">
-            </label>
+            <button class="eye-button" id="openSimulation" type="button" aria-haspopup="dialog"
+              aria-controls="simulationModal">
+              View Asteroid
+            </button>
           </div>
         </section>
 
         <section class="grid">
           <div class="grid-header">
-            <h2>Object Detail Feed</h2>
-            <p>Sorted by miss distance (closest first).</p>
+            <div class="grid-header-text">
+              <h2>Object Detail Feed</h2>
+              <p>Sorted by miss distance (closest first).</p>
+            </div>
+            <label class="search">
+              <span>Search</span>
+              <input id="searchInput" type="search" placeholder="Asteroid name or ID">
+            </label>
           </div>
           <div id="neoGrid" class="neo-grid"></div>
         </section>
