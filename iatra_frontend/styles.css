@@ -411,6 +411,16 @@ h1 {
   font-size: 0.8rem;
 }
 
+.date-range input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.9;
+}
+
+.date-range input::-moz-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.9;
+}
+
 .apply-range {
   border-color: transparent;
   background: var(--accent);

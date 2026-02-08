@@ -179,6 +179,7 @@ function wireAuthForms() {
   if (signupForm) {
     signupForm.addEventListener("submit", handleSignup);
   }
+
 }
 
 wireAuthForms();
