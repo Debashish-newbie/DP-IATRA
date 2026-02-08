@@ -1,4 +1,7 @@
 ﻿# DP-IATRA (Cosmic Watch)
+Interstellar Asteroid Tracker & Risk Analyser(IATRA)
+Cosmic Watch: A Full-Stack Platform for Real-Time Near-Earth Object (NEO) Monitoring
+
 
 Cosmic Watch is a NASA NeoWS-powered dashboard for monitoring Near-Earth Objects (NEOs). It includes a login flow, a live hazard dashboard, tracking for saved asteroids, and a Three.js visualization.
 
@@ -13,7 +16,7 @@ Cosmic Watch is a NASA NeoWS-powered dashboard for monitoring Near-Earth Objects
 - Frontend: HTML, CSS, Vanilla JS, Three.js
 - Backend: Node.js, Express
 - Data Sources: NASA NeoWS API
-- Optional Auth/Storage: Supabase
+- Auth/Storage: Supabase
 - Docker: Compose for frontend, backend, and PostgreSQL
 
 ## Repository Structure

@@ -474,15 +474,6 @@ function startSimulation() {
   const starField = createStarField();
   scene.add(starField);
 
-  const sun = createSun();
-  sun.position.set(-3.4, 0.9, -2.4);
-  scene.add(sun);
-
-  const orbitRing = createOrbitRing(2.2);
-  orbitRing.rotation.x = THREE.MathUtils.degToRad(75);
-  orbitRing.rotation.y = THREE.MathUtils.degToRad(18);
-  scene.add(orbitRing);
-
   const earthGroup = new THREE.Group();
   const earthTexture = createEarthTexture();
   const earthNormal = createEarthNormalTexture();
@@ -500,24 +491,6 @@ function startSimulation() {
   scene.add(earthGroup);
   planets.push({ group: earthGroup, speed: 0.08, mesh: earthMesh });
 
-  const planetGroup = new THREE.Group();
-  const mars = createPlanet(0.32, "#c9794b");
-  mars.position.set(1.8, 0.1, -1.2);
-  planetGroup.add(mars);
-  planets.push({ group: planetGroup, speed: 0.05, mesh: mars });
-
-  const venus = createPlanet(0.26, "#caa574");
-  venus.position.set(-1.6, -0.05, 1.3);
-  planetGroup.add(venus);
-  planets.push({ group: planetGroup, speed: 0.06, mesh: venus });
-
-  const moon = createPlanet(0.12, "#b9b9c2", 0.75);
-  moon.position.set(0.95, 0.05, 0.2);
-  planetGroup.add(moon);
-  planets.push({ group: planetGroup, speed: 0.12, mesh: moon });
-
-  scene.add(planetGroup);
-
   const asteroidBelt = createAsteroidBelt(42, 1.3, 2.2);
   scene.add(asteroidBelt.group);
 
@@ -527,9 +500,9 @@ function startSimulation() {
     camera,
     planets,
     starField,
-    sun,
-    orbitRing,
-    planetGroup,
+    sun: null,
+    orbitRing: null,
+    planetGroup: null,
     asteroidBelt,
     frameId: null,
     dragging: false,
